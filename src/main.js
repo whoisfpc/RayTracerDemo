@@ -210,7 +210,12 @@ function v3(x, y, z) {
         .addLight(new Light(LightType.ambient, 0.2))
         .addLight(new Light(LightType.point, 0.6, v3(2, 1, 0)))
         .addLight(new Light(LightType.directional, 0.2, null, v3(1, 4, 4)))
-    const cameraPosition = v3(0, 0, 0)
+    const cameraPosition = v3(3, 0, 1)
+    const cameraRotation = [
+        [0.7071, 0, -0.7071],
+        [     0, 1,       0],
+        [0.7071, 0,  0.7071]
+    ]
     const viewportSize = 1
     const projectionDepth = 1
     const backgroundColor = v3(17, 17, 17)
@@ -366,10 +371,21 @@ function v3(x, y, z) {
             Math.min(255, Math.max(0, color.z)))
     }
 
+    function multipleMV(mat, vec) {
+        const v = [vec.x, vec.y, vec.z]
+        const result = [0, 0, 0]
+        for (var i = 0; i < 3; i++) {
+            for (var j = 0; j < 3; j++) {
+                result[i] += v[j]*mat[i][j]
+            }
+        }
+        return v3(result[0], result[1], result[2])
+    }
+
     for (let x = -canvas.width / 2; x < canvas.width / 2; x++) {
         for (let y = -canvas.height / 2 + 1; y <= canvas.height / 2; y++) {
-            let viewportCoord = canvasToViewport(x, y)
-            let color = traceRay(cameraPosition, viewportCoord.sub(cameraPosition), 1, Infinity, reflectLimit)
+            const dir = multipleMV(cameraRotation, canvasToViewport(x, y))
+            const color = traceRay(cameraPosition, dir, 1, Infinity, reflectLimit)
             putPixel(x, y, clamp(color))
         }
     }
