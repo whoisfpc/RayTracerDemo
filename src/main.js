@@ -360,7 +360,7 @@ function v3(x, y, z) {
             return localColor
         }
 
-        const ray = reflectRay(dir.flip(), n)
+        const ray = reflectRay(v, n)
         const reflectColor = traceRay(p, ray, 0.001, Infinity, depth - 1)
         return localColor.scale(1 - r).add(reflectColor.scale(r))
     }
@@ -384,9 +384,19 @@ function v3(x, y, z) {
 
     for (let x = -canvas.width / 2; x < canvas.width / 2; x++) {
         for (let y = -canvas.height / 2 + 1; y <= canvas.height / 2; y++) {
-            const dir = multipleMV(cameraRotation, canvasToViewport(x, y))
-            const color = traceRay(cameraPosition, dir, 1, Infinity, reflectLimit)
-            putPixel(x, y, clamp(color))
+            let sx = x - 0.25
+            let sy = y - 0.25
+            let color = Vector3.zero()
+            for (let i = 0; i < 2; i++) {
+                for (let j = 0; j < 2; j++) {
+                    sx += i * 0.5
+                    sy += j * 0.5
+                    const dir = multipleMV(cameraRotation, canvasToViewport(sx, sy))
+                    const c = traceRay(cameraPosition, dir, 1, Infinity, reflectLimit)
+                    color = color.add(c)
+                }
+            }
+            putPixel(x, y, clamp(color.scale(0.25)))
         }
     }
 
