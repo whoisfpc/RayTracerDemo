@@ -247,6 +247,32 @@ function v3(x, y, z) {
     }
 
     /**
+     * reach closest interset sphere and point
+     * @param {Vector3} o 
+     * @param {Vector3} dir 
+     * @param {number} tMin 
+     * @param {number} tMax 
+     * @returns {{closestSphere: Sphere, closestT: number}} closestInterset
+     */
+    function closestInterset(o, dir, tMin, tMax) {
+        let closestT = Infinity
+        /** @type {Sphere} */
+        let closestSphere = null
+        scene.spheres.forEach(sphere => {
+            const t = intersetRaySphere(o, dir, sphere)
+            if (t[0] < closestT && t[0] > tMin && t[0] < tMax) {
+                closestT = t[0]
+                closestSphere = sphere
+            }
+            if (t[1] < closestT && t[1] > tMin && t[1] < tMax) {
+                closestT = t[1]
+                closestSphere = sphere
+            }
+        })
+        return {sphere: closestSphere, t: closestT}
+    }
+
+    /**
      * compute light intensity at point `p`
      * @param {Vector3} p 
      * @param {Vector3} n 
@@ -261,16 +287,25 @@ function v3(x, y, z) {
                 intensity += light.intensity
             } else {
                 let l
+                let tMax
                 if (light.type === LightType.point) {
                     l = light.position.sub(p)
+                    tMax = 1
                 } else {
                     l = light.direction
+                    tMax = Infinity
+                }
+                // shadow check
+                const {sphere: shadowSphere} = closestInterset(p, l, 0.001, tMax)
+                if (shadowSphere) {
+                    return
                 }
                 // compute diffuse
                 const ndotl = n.dot(l)
                 if (ndotl > 0) {
                     intensity += light.intensity * ndotl / (n.lenght() * l.lenght())
                 }
+
                 // compute specular
                 if (s != -1) {
                     const r = n.scale(2 * ndotl).sub(l)
@@ -293,20 +328,7 @@ function v3(x, y, z) {
      * @returns {Vector3}
      */
     function traceRay(o, dir, tMin, tMax) {
-        let closestT = Infinity
-        /** @type {Sphere} */
-        let closestSphere = null
-        scene.spheres.forEach(sphere => {
-            const t = intersetRaySphere(o, dir, sphere)
-            if (t[0] < closestT && t[0] > tMin && t[0] < tMax) {
-                closestT = t[0]
-                closestSphere = sphere
-            }
-            if (t[1] < closestT && t[1] > tMin && t[1] < tMax) {
-                closestT = t[1]
-                closestSphere = sphere
-            }
-        })
+        const {sphere: closestSphere, t: closestT} = closestInterset(o, dir, tMin, tMax)
         if (closestSphere == null) {
             return backgroundColor
         }
