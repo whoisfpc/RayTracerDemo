@@ -100,12 +100,14 @@ class Sphere {
      * @param {number} radius 
      * @param {Vector3} color 
      * @param {number} specular
+     * @param {number} reflective
      */
-    constructor(center, radius, color, specular) {
+    constructor(center, radius, color, specular, reflective) {
         this.center = center
         this.radius = radius
         this.color = color
         this.specular = specular
+        this.reflective = reflective
     }
 }
 
@@ -201,17 +203,18 @@ function v3(x, y, z) {
     }
 
     const scene = new Scene()
-    scene.addSphere(new Sphere(v3(0, -1, 3), 1, v3(255, 0, 0), 500))
-        .addSphere(new Sphere(v3(2, 0, 4), 1, v3(0, 0, 255), 500))
-        .addSphere(new Sphere(v3(-2, 0, 4), 1, v3(0, 255, 0), 10))
-        .addSphere(new Sphere(v3(0, -5001, 0), 5000, v3(255, 255, 0), 1000))
+    scene.addSphere(new Sphere(v3(0, -1, 3), 1, v3(255, 0, 0), 500, 0.2))
+        .addSphere(new Sphere(v3(2, 0, 4), 1, v3(0, 0, 255), 500, 0.3))
+        .addSphere(new Sphere(v3(-2, 0, 4), 1, v3(0, 255, 0), 10, 0.4))
+        .addSphere(new Sphere(v3(0, -5001, 0), 5000, v3(255, 255, 0), 1000, 0.5))
         .addLight(new Light(LightType.ambient, 0.2))
         .addLight(new Light(LightType.point, 0.6, v3(2, 1, 0)))
         .addLight(new Light(LightType.directional, 0.2, null, v3(1, 4, 4)))
     const cameraPosition = v3(0, 0, 0)
     const viewportSize = 1
     const projectionDepth = 1
-    const backgroundColor = v3(255, 255, 255)
+    const backgroundColor = v3(17, 17, 17)
+    const reflectLimit = 2
 
     /**
      * convert canvas coord to viewport coord
@@ -252,7 +255,7 @@ function v3(x, y, z) {
      * @param {Vector3} dir 
      * @param {number} tMin 
      * @param {number} tMax 
-     * @returns {{closestSphere: Sphere, closestT: number}} closestInterset
+     * @returns {{sphere: Sphere, t: number}} closestInterset
      */
     function closestInterset(o, dir, tMin, tMax) {
         let closestT = Infinity
@@ -270,6 +273,16 @@ function v3(x, y, z) {
             }
         })
         return {sphere: closestSphere, t: closestT}
+    }
+
+    /**
+     * reflect a ray r with normal n
+     * @param {Vector3} r 
+     * @param {Vector3} n 
+     * @returns {Vector3}
+     */
+    function reflectRay(r, n) {
+        return n.scale(2 * n.dot(r)).sub(r)
     }
 
     /**
@@ -308,7 +321,7 @@ function v3(x, y, z) {
 
                 // compute specular
                 if (s != -1) {
-                    const r = n.scale(2 * ndotl).sub(l)
+                    const r = reflectRay(l, n)
                     const rdotv = r.dot(v)
                     if (rdotv > 0) {
                         intensity += light.intensity * Math.pow(rdotv / (r.lenght() * v.lenght()), s)
@@ -327,7 +340,7 @@ function v3(x, y, z) {
      * @param {number} tMax 
      * @returns {Vector3}
      */
-    function traceRay(o, dir, tMin, tMax) {
+    function traceRay(o, dir, tMin, tMax, depth) {
         const {sphere: closestSphere, t: closestT} = closestInterset(o, dir, tMin, tMax)
         if (closestSphere == null) {
             return backgroundColor
@@ -335,7 +348,16 @@ function v3(x, y, z) {
         const p = o.add(dir.scale(closestT))
         const n = p.sub(closestSphere.center).normalized()
         const v = dir.flip().normalized()
-        return closestSphere.color.scale(computeLighting(p, n, v, closestSphere.specular))
+        const localColor = closestSphere.color.scale(computeLighting(p, n, v, closestSphere.specular))
+
+        const r = closestSphere.reflective
+        if (depth <= 0 || r <= 0) {
+            return localColor
+        }
+
+        const ray = reflectRay(dir.flip(), n)
+        const reflectColor = traceRay(p, ray, 0.001, Infinity, depth - 1)
+        return localColor.scale(1 - r).add(reflectColor.scale(r))
     }
 
     function clamp(color) {
@@ -347,7 +369,7 @@ function v3(x, y, z) {
     for (let x = -canvas.width / 2; x < canvas.width / 2; x++) {
         for (let y = -canvas.height / 2 + 1; y <= canvas.height / 2; y++) {
             let viewportCoord = canvasToViewport(x, y)
-            let color = traceRay(cameraPosition, viewportCoord.sub(cameraPosition), 1, Infinity)
+            let color = traceRay(cameraPosition, viewportCoord.sub(cameraPosition), 1, Infinity, reflectLimit)
             putPixel(x, y, clamp(color))
         }
     }
