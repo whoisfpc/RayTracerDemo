@@ -114,6 +114,9 @@ class Light {
      * @param {Vector3} direction 
      */
     constructor(type, intensity, position, direction) {
+        if (!type) {
+            type = 0
+        }
         this.type = type
         this.intensity = intensity
         this.position = position || Vector3.zero()
@@ -164,7 +167,7 @@ function v3(x, y, z) {
     const canvas = document.getElementById("canvas")
     const ctx = canvas.getContext("2d")
     const buffer = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    const pitch = buffer.width * 4;
+    const pitch = buffer.width * 4
 
     /**
      * put a pixel on (x, y) with color
@@ -294,7 +297,7 @@ function v3(x, y, z) {
     function clamp(color) {
         return v3(Math.min(255, Math.max(0, color.x)),
             Math.min(255, Math.max(0, color.y)),
-            Math.min(255, Math.max(0, color.z)),)
+            Math.min(255, Math.max(0, color.z)))
     }
 
     for (let x = -canvas.width / 2; x < canvas.width / 2; x++) {
