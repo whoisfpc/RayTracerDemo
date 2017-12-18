@@ -27,6 +27,14 @@ class Vector3 {
     }
 
     /**
+     * return a vector, flip every axis
+     * @returns {Vector3}
+     */
+    flip() {
+        return new Vector3(-this.x, -this.y, -this.z)
+    }
+
+    /**
      * @returns {number}
      */
     lenght() {
@@ -91,11 +99,13 @@ class Sphere {
      * @param {Vector3} center 
      * @param {number} radius 
      * @param {Vector3} color 
+     * @param {number} specular
      */
-    constructor(center, radius, color) {
+    constructor(center, radius, color, specular) {
         this.center = center
         this.radius = radius
         this.color = color
+        this.specular = specular
     }
 }
 
@@ -191,10 +201,10 @@ function v3(x, y, z) {
     }
 
     const scene = new Scene()
-    scene.addSphere(new Sphere(v3(0, -1, 3), 1, v3(255, 0, 0)))
-        .addSphere(new Sphere(v3(2, 0, 4), 1, v3(0, 0, 255)))
-        .addSphere(new Sphere(v3(-2, 0, 4), 1, v3(0, 255, 0)))
-        .addSphere(new Sphere(v3(0, -5001, 0), 5000, v3(255, 255, 0)))
+    scene.addSphere(new Sphere(v3(0, -1, 3), 1, v3(255, 0, 0), 500))
+        .addSphere(new Sphere(v3(2, 0, 4), 1, v3(0, 0, 255), 500))
+        .addSphere(new Sphere(v3(-2, 0, 4), 1, v3(0, 255, 0), 10))
+        .addSphere(new Sphere(v3(0, -5001, 0), 5000, v3(255, 255, 0), 1000))
         .addLight(new Light(LightType.ambient, 0.2))
         .addLight(new Light(LightType.point, 0.6, v3(2, 1, 0)))
         .addLight(new Light(LightType.directional, 0.2, null, v3(1, 4, 4)))
@@ -240,9 +250,11 @@ function v3(x, y, z) {
      * compute light intensity at point `p`
      * @param {Vector3} p 
      * @param {Vector3} n 
+     * @param {Vector3} v 
+     * @param {number} s 
      * @returns {number}
      */
-    function computeLighting(p, n) {
+    function computeLighting(p, n, v, s) {
         let intensity = 0
         scene.lights.forEach(light => {
             if (light.type === LightType.ambient) {
@@ -254,9 +266,18 @@ function v3(x, y, z) {
                 } else {
                     l = light.direction
                 }
+                // compute diffuse
                 const ndotl = n.dot(l)
                 if (ndotl > 0) {
                     intensity += light.intensity * ndotl / (n.lenght() * l.lenght())
+                }
+                // compute specular
+                if (s != -1) {
+                    const r = n.scale(2 * ndotl).sub(l)
+                    const rdotv = r.dot(v)
+                    if (rdotv > 0) {
+                        intensity += light.intensity * Math.pow(rdotv / (r.lenght() * v.lenght()), s)
+                    }
                 }
             }
         })
@@ -291,7 +312,8 @@ function v3(x, y, z) {
         }
         const p = o.add(dir.scale(closestT))
         const n = p.sub(closestSphere.center).normalized()
-        return closestSphere.color.scale(computeLighting(p, n))
+        const v = dir.flip().normalized()
+        return closestSphere.color.scale(computeLighting(p, n, v, closestSphere.specular))
     }
 
     function clamp(color) {
